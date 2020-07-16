@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -98,6 +99,16 @@ dfsForestFrom (fmap vertexID -> vs) g =
 dfsForestBackwards :: (Monoid e, Vertex v, Ord (VertexID v)) => v -> LabelledGraph v e -> Forest v
 dfsForestBackwards fromV (LabelledGraph g' v') =
   dfsForestFrom [fromV] $ LabelledGraph (LAM.transpose g') v'
+
+-- TODO: rename
+bfsForestBackwardsFlipped :: forall e v. (Ord v, Monoid e, Vertex v, Ord (VertexID v)) => v -> LabelledGraph v e -> Forest v
+bfsForestBackwardsFlipped fromV g@(LabelledGraph g' _) =
+  -- bfsForestFrom [fromV] $ LabelledGraph (LAM.transpose g') v'
+  -- TODO: vs should be using clusters and mothers
+  let vs :: Set (VertexID v) = Set.delete (vertexID fromV) $ Set.fromList $ Algo.reachable (vertexID fromV) $ LAM.skeleton $ LAM.transpose g'
+      subG :: LAM.AdjacencyMap e (VertexID v) = LAM.induce (flip Set.member vs) g'
+      forest = Algo.bfsForest (motherVertices $ LAM.skeleton subG) $ LAM.skeleton $ subG
+   in fmap (fmap $ getVertex g) forest
 
 bfsForestBackwards :: (Monoid e, Vertex v, Ord (VertexID v)) => v -> LabelledGraph v e -> Forest v
 bfsForestBackwards fromV (LabelledGraph g' v') =

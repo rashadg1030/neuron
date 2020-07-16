@@ -5,6 +5,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -16,11 +17,13 @@ module Neuron.Web.Zettel.View
 where
 
 import Data.TagTree
+import Data.Tree
 import qualified Neuron.Web.Query.View as Q
 import Neuron.Web.Route
 import Neuron.Web.Widget
 import qualified Neuron.Web.Widget.AutoScroll as AS
-import qualified Neuron.Web.Widget.InvertedTree as IT
+--import qualified Neuron.Web.Widget.InvertedTree as IT
+import Neuron.Web.ZIndex (connIndicators)
 import Neuron.Zettelkasten.Connection
 import Neuron.Zettelkasten.Graph (ZettelGraph)
 import qualified Neuron.Zettelkasten.Graph as G
@@ -32,29 +35,55 @@ import Reflex.Dom.Pandoc
 import Relude hiding ((&))
 import Text.Pandoc.Definition (Pandoc)
 
+-- | TODO: Move date creation out of it, like ZIndex
 renderZettel ::
   PandocBuilder t m =>
   (ZettelGraph, ZettelC) ->
   NeuronWebT t m ()
 renderZettel (graph, zc@(sansContent -> z)) = do
-  let upTree = G.backlinkForest Folgezettel z graph
-  unless (null upTree) $ do
-    IT.renderInvertedHeadlessTree "zettel-uptree" "deemphasized" upTree $ \z2 ->
-      Q.renderZettelLink (G.getConnection z z2 graph) def z2
+  --let upTree = G.backlinkForest Folgezettel z graph
+  --unless (null upTree) $ do
+  --  IT.renderInvertedHeadlessTree "zettel-uptree" "deemphasized" upTree $ \z2 ->
+  --    Q.renderZettelLink (G.getConnection z z2 graph) def z2
   -- Main content
   elAttr "div" ("class" =: "ui text container" <> "id" =: "zettel-container" <> "style" =: "position: relative") $ do
+    divClass "ui left attached rail" $ do
+      divClass "ui segment" $ do
+        elClass "ul" "uplink-tree deemphasized" $ do
+          let upTree2 = G.backlinkForest2 Folgezettel z graph
+          renderUplinkForest z graph upTree2
+          let cfBacklinks = nonEmpty $ fmap snd $ G.backlinks (== Just OrdinaryConnection) z graph
+          whenJust cfBacklinks $ \zs -> do
+            el "li" $ do
+              el "hr" blank
+              text "Non-branching backlinks"
+              -- TODO: eject folgezettel parents from `zs`
+              el "ul" $ forM_ zs $ \cfZ ->
+                el "li" $ Q.renderZettelLink Nothing def cfZ
     whenStaticallyGenerated $ do
       -- We use -24px (instead of -14px) here so as to not scroll all the way to
       -- title, and as to leave some of the tree visible as "hint" to the user.
       lift $ AS.marker "zettel-container-anchor" (-24)
     divClass "zettel-view" $ do
       renderZettelContentCard (graph, zc)
-      renderZettelBottomPane graph z
-  -- Because the tree above can be pretty large, we scroll past it
-  -- automatically when the page loads.
-  whenStaticallyGenerated $ do
-    unless (null upTree) $ do
-      AS.script "zettel-container-anchor"
+
+-- Because the tree above can be pretty large, we scroll past it
+-- automatically when the page loads.
+--whenStaticallyGenerated $ do
+--  unless (null upTree) $ do
+--    AS.script "zettel-container-anchor"
+
+renderUplinkForest :: DomBuilder t m => Zettel -> ZettelGraph -> Forest Zettel -> NeuronWebT t m ()
+renderUplinkForest currentZettel g trees = do
+  forM_ trees $ \(Node zettel subtrees) ->
+    el "li" $ do
+      let branchesToCurrentZettel = (== Just Folgezettel) $ G.getConnection zettel currentZettel g
+      elClass "span" (bool "remote" "terminal alwaysemph" branchesToCurrentZettel) $ do
+        Q.renderZettelLink Nothing def zettel
+        -- TODO: Do it the *other* way. Inject child as non-link text under the secondary parents.
+        connIndicators $ fmap snd $ G.backlinks (== Just Folgezettel) zettel g
+      unless (null subtrees) $ do
+        el "ul" $ renderUplinkForest currentZettel g subtrees
 
 renderZettelContentCard ::
   PandocBuilder t m =>
@@ -67,8 +96,9 @@ renderZettelContentCard (graph, zc) =
     Left z -> do
       renderZettelRawContent z
 
-renderZettelBottomPane :: DomBuilder t m => ZettelGraph -> Zettel -> NeuronWebT t m ()
-renderZettelBottomPane graph z@Zettel {..} = do
+-- TODO: remove
+_renderZettelBottomPane :: DomBuilder t m => ZettelGraph -> Zettel -> NeuronWebT t m ()
+_renderZettelBottomPane graph z@Zettel {..} = do
   let cfBacklinks = nonEmpty $ fmap snd $ G.backlinks (== Just OrdinaryConnection) z graph
       tags = nonEmpty zettelTags
   when (isJust cfBacklinks || isJust tags)
@@ -122,6 +152,7 @@ renderZettelContent handleLink Zettel {..} = do
       elAttr "div" ("class" =: "date" <> "title" =: "Zettel creation date") $ do
         text "Created on: "
         elTime day
+    whenJust (nonEmpty zettelTags) $ renderTags
 
 renderZettelRawContent :: (DomBuilder t m) => ZettelT Text -> m ()
 renderZettelRawContent Zettel {..} = do

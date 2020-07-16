@@ -25,6 +25,7 @@ module Data.Graph.Labelled
     dfsForestBackwards,
     bfsForestFrom,
     bfsForestBackwards,
+    bfsForestBackwardsFlipped,
     obviateRootUnlessForest,
     induceOnEdge,
   )

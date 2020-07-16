@@ -23,7 +23,7 @@ zettelCss = do
       C.important $ do
         C.marginLeft $ em 0.4
         C.marginRight $ em 0.4
-  "div.zettel-view" ? do
+  "div#zettel-container" ? do
     -- This list styling applies both to zettel content, and the rest of the
     -- view (eg: connections pane)
     C.ul ? do
@@ -32,11 +32,21 @@ zettelCss = do
       C.li ? do
         mempty -- C.paddingBottom $ em 1
     zettelContentCss
+    connectionsCss
   IT.style
   ".ui.label.zettel-tag a.tag-inner" ? do
     C.color black
     "a" ? do
       C.color black
+
+connectionsCss :: Css
+connectionsCss = do
+  ".uplink-tree" ? do
+    "span.terminal" ? do
+      C.fontSize $ em 1.2
+      C.color C.auto
+    "span.remote" ? do
+      mempty -- C.opacity 0.5
 
 zettelContentCss :: Css
 zettelContentCss = do
@@ -119,8 +129,8 @@ zettelCommonCss = do
     C.maxWidth $ pct 100 -- Prevents large images from overflowing beyond zettel borders
   ".deemphasized" ? do
     fontSize $ em 0.85
-  ".deemphasized:hover" ? do
-    opacity 1
+  ".deemphasized:hover, .deemphasized .alwaysemph" ? do
+    C.important $ opacity 1
   ".deemphasized:not(:hover)" ? do
     opacity 0.7
     "span.zettel-link a, div.item a" ? important (color gray)

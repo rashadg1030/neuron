@@ -17,6 +17,7 @@ module Neuron.Zettelkasten.Graph
     topSort,
     frontlinkForest,
     backlinkForest,
+    backlinkForest2,
     backlinks,
     backlinksMulti,
     clusters,
@@ -46,6 +47,12 @@ backlinkForest :: Connection -> Zettel -> ZettelGraph -> Forest Zettel
 backlinkForest conn z =
   G.obviateRootUnlessForest z
     . G.bfsForestBackwards z
+    . G.induceOnEdge (== Just conn)
+
+backlinkForest2 :: Connection -> Zettel -> ZettelGraph -> Forest Zettel
+backlinkForest2 conn z =
+  -- G.obviateRootUnlessForest z
+  G.bfsForestBackwardsFlipped z
     . G.induceOnEdge (== Just conn)
 
 backlinks ::

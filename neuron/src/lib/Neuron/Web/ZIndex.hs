@@ -11,6 +11,8 @@ module Neuron.Web.ZIndex
     buildZIndex,
     ZIndex (..),
     style,
+    renderForest,
+    connIndicators,
   )
 where
 
@@ -136,6 +138,7 @@ renderErrors errors = do
               forM_ filePaths $ \fp ->
                 el "li" $ el "tt" $ text $ toText fp
 
+-- | NOTE: Caller must manually wrap the top element with `ul`.
 renderForest ::
   DomBuilder t m =>
   [Tree (Zettel, [Zettel])] ->
@@ -144,13 +147,17 @@ renderForest trees = do
   forM_ trees $ \(Node (zettel, uplinks) subtrees) ->
     el "li" $ do
       QueryView.renderZettelLink Nothing def zettel
-      when (length uplinks >= 2) $ do
-        elClass "span" "uplinks" $ do
-          forM_ uplinks $ \z2 -> do
-            el "small" $
-              elAttr "i" ("class" =: "linkify icon" <> "title" =: zettelTitle z2) blank
+        >> connIndicators uplinks
       unless (null subtrees) $ do
         el "ul" $ renderForest subtrees
+
+connIndicators :: DomBuilder t m => [Zettel] -> m ()
+connIndicators uplinks = do
+  when (length uplinks >= 2) $ do
+    elClass "span" "uplinks" $ do
+      forM_ uplinks $ \z2 -> do
+        el "small" $
+          elAttr "i" ("class" =: "linkify icon" <> "title" =: zettelTitle z2) blank
 
 style :: Css
 style = do
